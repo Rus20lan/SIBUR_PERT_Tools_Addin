@@ -1,0 +1,36 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<customUI xmlns="http://schemas.microsoft.com/office/2009/07/customui" onLoad="OnRibbonLoad">
+  <ribbon>
+    <tabs>
+      <tab id="SIBURPERTToolsTab" label="SIBUR_PERT Tools">
+        <group id="grpPertTools" label="Инструменты PERT">
+			<button id="btnCreateTable" 
+					label="Создать столбцы PERT"
+					size="large" 
+					imageMso="TableDesign" 
+					onAction="CreatePertTable" 
+					getEnabled="GetCreateTableEnabled"/>
+			<separator id="sep1"/>
+			
+			<button id="btnCalculate"
+					label="Расчёт PERT"
+					size="large" 
+					imageMso="CalculateField" 
+					onAction="CalculatePERT" 
+					getEnabled="GetOtherButtonsEnabled"/>
+			<button id="btnApply" 
+					label="Применить расчёт PERT"
+					size="large" 
+					imageMso="AcceptInvitation" 
+					onAction="ApplyPERTDurations"
+					getEnabled="GetOtherButtonsEnabled"/>
+			<editBox id="txtHoursPerDay"
+					 label="Часов в дне:"
+					 getText ="GetHoursPerDayText"
+					 onChange="HoursPerDay_Changed" />
+        </group>
+      </tab>
+    </tabs>
+  </ribbon>
+</customUI>
+
