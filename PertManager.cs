@@ -113,6 +113,8 @@ namespace SIBUR_PERT_Tools_Addin
             double hoursPerDay = GetHoursPerDay();
             int minutesPerDay = (int)(hoursPerDay *  60);
 
+            App.ScreenUpdating = false;
+            App.Calculation = MSProject.PjCalculation.pjManual;
             foreach (MSProject.Task task in ActiveProject.Tasks)
             {
                 if (task == null || Convert.ToBoolean(task.Summary)) continue;
@@ -128,14 +130,48 @@ namespace SIBUR_PERT_Tools_Addin
                 if (w1 == 0) w1 = 1;
                 if (w2 == 0) w2 = 4;
                 if (w3 == 0) w3 = 1;
+
+                if (opt > 0 || mostLikely > 0 || pess > 0)
+                {
+                    double pertMinutes = (opt * w1 + mostLikely * w2 + pess * w3) / (w1 + w2 + w3);
+
+                    double days = pertMinutes / minutesPerDay;
+                    double roundedMinutes = Math.Ceiling(days) * minutesPerDay;
+
+                    task.Duration7 = roundedMinutes;
+                    task.Text30 = $"Рассчитано ({DateTime.Now:HH:mm})";
+                }
             }
+            App.Calculation = MSProject.PjCalculation.pjAutomatic;
+            App.ScreenUpdating = true;
+            MessageBox.Show("Расчет завершен.", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         ///<summary>
         /// Применение расчитанной длительности к основной колонке Duration
         /// </summary>
         public void ApplyPERTDurations()
         {
+            var result = MessageBox.Show("Вы уверены, что хотите перезаписать основные длительности задач?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
+            if (result != DialogResult.Yes) return;
+
+            App.ScreenUpdating = false;
+            App.Calculation = MSProject.PjCalculation.pjManual;
+
+            foreach (MSProject.Task task in ActiveProject.Tasks)
+            {
+                if (task == null || Convert.ToBoolean(task.Summary)) continue;
+
+                double calcDuration = Convert.ToDouble(task.GetField(MSProject.PjField.pjTaskDuration7));
+
+                if (calcDuration > 0)
+                {
+                    task.Duration = calcDuration;
+                    task.Text30 = "Применено";
+                }
+            }
+            App.Calculation = MSProject.PjCalculation.pjAutomatic;
+            App.ScreenUpdating = true;
         }
 
         public double GetHoursPerDay()

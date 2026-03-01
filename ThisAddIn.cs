@@ -40,6 +40,7 @@ namespace SIBUR_PERT_Tools_Addin
 
         private void ThisAddIn_Shutdown(object sender, System.EventArgs e)
         {
+
         }
 
         #region Код, автоматически созданный VSTO
