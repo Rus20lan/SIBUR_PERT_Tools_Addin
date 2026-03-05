@@ -38,13 +38,14 @@ namespace SIBUR_PERT_Tools_Addin
 
         public string GetCustomUI(string ribbonID)
         {
+            //return GetResourceText("PertRibbon.xml");
             return GetResourceText("SIBUR_PERT_Tools_Addin.PertRibbon.xml");
         }
 
         public void OnRibbonLoad(IRibbonUI ribbonUI)
         {
             this.ribbon = ribbonUI;
-            PertManager.Instance.SetRibbon(ribbonUI)
+            PertManager.Instance.SetRibbon(ribbonUI);
         }
 
         #endregion
@@ -74,6 +75,11 @@ namespace SIBUR_PERT_Tools_Addin
         {
             Assembly asm = Assembly.GetExecutingAssembly();
             string[] resourceNames = asm.GetManifestResourceNames();
+
+            foreach (var name in resourceNames) 
+            {
+                System.Diagnostics.Debug.WriteLine("Найден ресурс: " + name);
+            }
             for (int i = 0; i < resourceNames.Length; ++i)
             {
                 if (string.Compare(resourceName, resourceNames[i], StringComparison.OrdinalIgnoreCase) == 0)

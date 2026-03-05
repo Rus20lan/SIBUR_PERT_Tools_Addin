@@ -15,7 +15,7 @@
 			<button id="btnCalculate"
 					label="Расчёт PERT"
 					size="large" 
-					imageMso="CalculateField" 
+					imageMso="CalculateNow" 
 					onAction="CalculatePERT" 
 					getEnabled="GetOtherButtonsEnabled"/>
 			<button id="btnApply" 

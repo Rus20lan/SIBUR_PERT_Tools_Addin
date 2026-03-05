@@ -52,7 +52,8 @@ namespace SIBUR_PERT_Tools_Addin
             {
                 App.ScreenUpdating = false;
                 // 1. Переключаемся на Диаграмму Ганта
-                App.ViewApplyEx("Gantt Chart");
+                //App.ViewApplyEx("Gantt Chart");
+                App.ViewApplyEx(Name: App.ActiveProject.Views[MSProject.PjViewType.pjViewGantt].Name);
                 // 2. Создаем/редактируем таблицу
                 bool exists = CheckPertTableExists();
 
