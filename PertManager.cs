@@ -15,6 +15,8 @@ namespace SIBUR_PERT_Tools_Addin
         private static readonly Lazy<PertManager> _instance = new Lazy<PertManager>(() => new PertManager());
         public static PertManager Instance => _instance.Value;
 
+        private const string ViewName = "SIBUR PERT View";
+
         private IRibbonUI _ribbon;
         private const string TableName = "Pert";
         private const string PropName = "PERT_HoursPerDay";
@@ -50,56 +52,172 @@ namespace SIBUR_PERT_Tools_Addin
         {
             try
             {
+                if (ActiveProject == null) return;
+
+                // Останавливаем отрисовку, чтобы не было "дерганий"
                 App.ScreenUpdating = false;
-                // 1. Переключаемся на Диаграмму Ганта
-                //App.ViewApplyEx("Gantt Chart");
-                App.ViewApplyEx(Name: App.ActiveProject.Views[MSProject.PjViewType.pjViewGantt].Name);
-                // 2. Создаем/редактируем таблицу
-                bool exists = CheckPertTableExists();
+
+                // 1. Создаем таблицу
+                bool tableExists = CheckPertTableExists();
+                // Первая колонка с флагом Create
+                App.TableEditEx(
+                        Name: TableName,
+                        TaskTable: true,
+                        Create: !tableExists,
+                        FieldName: App.FieldConstantToFieldName(MSProject.PjField.pjTaskID),
+                        Title: "ID",
+                        Width: 5,
+                        ShowInMenu: true
+                    );
 
                 // Последовательное добавление колонок
-                EditTableColumn(TableName, "ID", "ID", 5, true);
-                EditTableColumn(TableName, "Name", "Название", 25);
-                EditTableColumn(TableName, "Duration4", "Optimistic", 15);
-                EditTableColumn(TableName, "Duration5", "Most Likely", 15);
-                EditTableColumn(TableName, "Duration6", "Pessimistic", 15);
-                EditTableColumn(TableName, "Number4", "W1", 5);
-                EditTableColumn(TableName, "Number5", "W2", 5);
-                EditTableColumn(TableName, "Number6", "W3", 5);
-                EditTableColumn(TableName, "Text30", "Status", 15);
-                EditTableColumn(TableName, "Duration", "PERT Duration", 15);
-                EditTableColumn(TableName, "Duration7", "Расчет длительности PERT", 15);
-                EditTableColumn(TableName, "Start", "Start", 12);
-                EditTableColumn(TableName, "Finish", "Finish", 12);
-                EditTableColumn(TableName, "Predecessors", "Pred", 10);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskID), "ID", 5, !tableExists);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskName), "Название", 25);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration4), "Optimistic", 15);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration5), "Most Likely", 15);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration6), "Pessimistic", 15);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskNumber4), "W1", 5);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskNumber5), "W2", 5);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskNumber6), "W3", 5);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskText30), "Status", 15);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration), "Current Duration", 15);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration7), "Расчет длительности PERT", 15);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskStart), "Start", 12);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskFinish), "Finish", 12);
+                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskPredecessors), "Pred", 10);
 
-                // 3. Применяем таблицу
+                // Создаем представление
+                bool viewExists = false;
+                foreach (MSProject.View view in ActiveProject.Views)
+                {
+                    if (view.Name == ViewName) { viewExists = true; break; }
+                }
+
+                try
+                {
+                    App.ViewEditSingle(
+                       Name: ViewName,
+                       Create: !viewExists,
+                       Screen: MSProject.PjViewScreen.pjGantt,
+                       Table: TableName
+                   );
+                }
+                catch (Exception)
+                {
+
+                    App.TableApply(TableName);
+                    App.ViewEditSingle(
+                       Name: ViewName,
+                       Create: !viewExists,
+                       Screen: MSProject.PjViewScreen.pjGantt,
+                       Table: TableName
+                       //Filter: "Нет фильтра",
+                       //Group: "Нет группы"
+                    );
+                }
+                // Применяем результат
+                App.ViewApply(ViewName);
                 App.TableApply(TableName);
+                App.SelectBeginning();
 
-                // 4. Переименовываем поля (CustomFieldRename)
-                App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskDuration4, "Optimistic Duration");
-                App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskDuration5, "Most Likely Duration");
-                App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskDuration6, "Pessimistic Duration");
-                App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskNumber4, "Optimistic Weight");
-                App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskNumber5, "Most Likely Weight");
-                App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskNumber6, "Pessimistic Weight");
-                App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskText30, "PERT State");
-                App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskDuration7, "PERT Calc Duration");
-
+                //App.ScreenUpdating = true;
                 InvalidateRibbon();
-
-                MessageBox.Show("Таблица PERT успешно создана!", "SIBUR PERT", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show($"Представление '{ViewName}' создано и выбрано.", "SIBUR PERT", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-
-                MessageBox.Show($"Ошибка при создании таблицы: {ex.Message}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                
+                MessageBox.Show($"Ошибка при настройке интерфейса: {ex.Message}\nСтрока:\n{ex.StackTrace}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
                 App.ScreenUpdating = true;
             }
         }
+
+
+        //public void CreatePertTable()
+        //{
+        //    try
+        //    {
+        //        if (ActiveProject == null) return;
+        //        App.ScreenUpdating = false;
+        //        // 1. Переключаемся на Диаграмму Ганта
+        //        // Динамический поиск представления Диаграммы Ганта для текущей локализации
+        //        string ganttViewName = "";
+        //        foreach (MSProject.View view in ActiveProject.Views)
+        //        {
+        //            try
+        //            {
+        //                if (view != null && view.Screen == MSProject.PjViewScreen.pjGantt)
+        //                {
+        //                    ganttViewName = view.Name;
+        //                    break;
+        //                }
+        //            }
+        //            catch (Exception)
+        //            {
+        //                continue;
+        //            }
+                    
+        //        }
+
+        //        if (string.IsNullOrEmpty(ganttViewName))
+        //        {
+        //            try { App.ViewApplyEx(Name: "Диаграмма Ганта"); }
+        //            catch { App.ViewApplyEx(Name: "Gantt Chart"); }
+        //        }
+        //        else
+        //        {
+        //            App.ViewApplyEx(Name: ganttViewName);
+        //        }
+        //        // 2. Создаем/редактируем таблицу
+        //        bool exists = CheckPertTableExists();
+
+        //        // Последовательное добавление колонок
+        //        EditTableColumn(TableName, "ID", "ID", 5, true);
+        //        EditTableColumn(TableName, "Name", "Название", 25);
+        //        EditTableColumn(TableName, "Duration4", "Optimistic", 15);
+        //        EditTableColumn(TableName, "Duration5", "Most Likely", 15);
+        //        EditTableColumn(TableName, "Duration6", "Pessimistic", 15);
+        //        EditTableColumn(TableName, "Number4", "W1", 5);
+        //        EditTableColumn(TableName, "Number5", "W2", 5);
+        //        EditTableColumn(TableName, "Number6", "W3", 5);
+        //        EditTableColumn(TableName, "Text30", "Status", 15);
+        //        EditTableColumn(TableName, "Duration", "PERT Duration", 15);
+        //        EditTableColumn(TableName, "Duration7", "Расчет длительности PERT", 15);
+        //        EditTableColumn(TableName, "Start", "Start", 12);
+        //        EditTableColumn(TableName, "Finish", "Finish", 12);
+        //        //EditTableColumn(TableName, "Predecessors", "Pred", 10);
+        //        EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskPredecessors), "Pred", 10);
+
+        //        // 3. Применяем таблицу
+        //        App.TableApply(TableName);
+
+        //        // 4. Переименовываем поля (CustomFieldRename)
+        //        App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskDuration4, "Optimistic Duration");
+        //        App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskDuration5, "Most Likely Duration");
+        //        App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskDuration6, "Pessimistic Duration");
+        //        App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskNumber4, "Optimistic Weight");
+        //        App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskNumber5, "Most Likely Weight");
+        //        App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskNumber6, "Pessimistic Weight");
+        //        App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskText30, "PERT State");
+        //        App.CustomFieldRename(MSProject.PjCustomField.pjCustomTaskDuration7, "PERT Calc Duration");
+
+        //        InvalidateRibbon();
+
+        //        MessageBox.Show("Таблица PERT успешно создана!", "SIBUR PERT", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        //    }
+        //    catch (Exception ex)
+        //    {
+
+        //        MessageBox.Show($"Ошибка при создании таблицы: {ex.Message}\nСтрока:\n{ex.StackTrace}", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        //    }
+        //    finally
+        //    {
+        //        App.ScreenUpdating = true;
+        //    }
+        //}
 
         private void EditTableColumn(string tableName, string fieldName, string title, int width, bool create = false)
         {
