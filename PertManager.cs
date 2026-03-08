@@ -54,6 +54,13 @@ namespace SIBUR_PERT_Tools_Addin
             {
                 if (ActiveProject == null) return;
 
+                App.FilterClear();
+                string defaultFilter = ActiveProject.CurrentFilter;
+                App.GroupClear();
+                string defaultGroup = ActiveProject.CurrentGroup;
+
+                MessageBox.Show($"Filter: {defaultFilter}\nGroup: {defaultGroup}");
+
                 // Останавливаем отрисовку, чтобы не было "дерганий"
                 App.ScreenUpdating = false;
 
@@ -71,7 +78,7 @@ namespace SIBUR_PERT_Tools_Addin
                     );
 
                 // Последовательное добавление колонок
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskID), "ID", 5, !tableExists);
+                //EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskID), "ID", 5, !tableExists);
                 EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskName), "Название", 25);
                 EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration4), "Optimistic", 15);
                 EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration5), "Most Likely", 15);
@@ -95,11 +102,14 @@ namespace SIBUR_PERT_Tools_Addin
 
                 try
                 {
+                    App.TableApply(TableName);
                     App.ViewEditSingle(
                        Name: ViewName,
                        Create: !viewExists,
                        Screen: MSProject.PjViewScreen.pjGantt,
-                       Table: TableName
+                       Table: TableName,
+                       Filter: defaultFilter,
+                       Group: defaultGroup
                    );
                 }
                 catch (Exception)
@@ -110,18 +120,18 @@ namespace SIBUR_PERT_Tools_Addin
                        Name: ViewName,
                        Create: !viewExists,
                        Screen: MSProject.PjViewScreen.pjGantt,
-                       Table: TableName
-                       //Filter: "Нет фильтра",
-                       //Group: "Нет группы"
+                       Table: TableName,
+                       Filter: defaultFilter,
+                       Group: defaultGroup
                     );
                 }
                 // Применяем результат
                 App.ViewApply(ViewName);
                 App.TableApply(TableName);
-                App.SelectBeginning();
+                //App.SelectBeginning();
 
                 //App.ScreenUpdating = true;
-                InvalidateRibbon();
+                //InvalidateRibbon();
                 MessageBox.Show($"Представление '{ViewName}' создано и выбрано.", "SIBUR PERT", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
