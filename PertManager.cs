@@ -53,85 +53,51 @@ namespace SIBUR_PERT_Tools_Addin
             try
             {
                 if (ActiveProject == null) return;
-
                 App.FilterClear();
                 string defaultFilter = ActiveProject.CurrentFilter;
                 App.GroupClear();
                 string defaultGroup = ActiveProject.CurrentGroup;
 
-                MessageBox.Show($"Filter: {defaultFilter}\nGroup: {defaultGroup}");
-
+                //MessageBox.Show($"Filter: {defaultFilter}\nGroup: {defaultGroup}");
                 // Останавливаем отрисовку, чтобы не было "дерганий"
                 App.ScreenUpdating = false;
-
                 // 1. Создаем таблицу
                 bool tableExists = CheckPertTableExists();
-                // Первая колонка с флагом Create
-                App.TableEditEx(
-                        Name: TableName,
-                        TaskTable: true,
-                        Create: !tableExists,
-                        FieldName: App.FieldConstantToFieldName(MSProject.PjField.pjTaskID),
-                        Title: "ID",
-                        Width: 5,
-                        ShowInMenu: true
-                    );
-
+                // Добавлеем в текущий проект новую таблицу Pert
+                ActiveProject.TaskTables.Add(TableName, MSProject.PjField.pjTaskID);
+                MSProject.Table newTable = ActiveProject.TaskTables[TableName];
                 // Последовательное добавление колонок
-                //EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskID), "ID", 5, !tableExists);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskName), "Название", 25);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration4), "Optimistic", 15);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration5), "Most Likely", 15);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration6), "Pessimistic", 15);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskNumber4), "W1", 5);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskNumber5), "W2", 5);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskNumber6), "W3", 5);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskText30), "Status", 15);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration), "Current Duration", 15);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskDuration7), "Расчет длительности PERT", 15);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskStart), "Start", 12);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskFinish), "Finish", 12);
-                EditTableColumn(TableName, App.FieldConstantToFieldName(MSProject.PjField.pjTaskPredecessors), "Pred", 10);
-
+                newTable.TableFields.Add(MSProject.PjField.pjTaskName,Title: "Название", Width:25);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskDuration4, Title: "Optimistic", Width: 15);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskDuration5, Title: "Most Likely", Width: 15);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskDuration6, Title: "Pessimistic", Width: 15);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskNumber4, Title: "W1", Width: 5);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskNumber5, Title: "W2", Width: 5);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskNumber6, Title: "W3", Width: 5);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskText30, Title: "Status", Width: 15);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskDuration, Title: "Длительность", Width: 15);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskDuration7, Title: "Расчет длительности PERT", Width: 15);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskStart, Title: "Начало", Width: 12);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskFinish, Title: "Окончание", Width: 12);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskPredecessors, Width: 10);
                 // Создаем представление
                 bool viewExists = false;
                 foreach (MSProject.View view in ActiveProject.Views)
                 {
                     if (view.Name == ViewName) { viewExists = true; break; }
                 }
-
-                try
-                {
-                    App.TableApply(TableName);
-                    App.ViewEditSingle(
-                       Name: ViewName,
-                       Create: !viewExists,
-                       Screen: MSProject.PjViewScreen.pjGantt,
-                       Table: TableName,
-                       Filter: defaultFilter,
-                       Group: defaultGroup
-                   );
-                }
-                catch (Exception)
-                {
-
-                    App.TableApply(TableName);
-                    App.ViewEditSingle(
-                       Name: ViewName,
-                       Create: !viewExists,
-                       Screen: MSProject.PjViewScreen.pjGantt,
-                       Table: TableName,
-                       Filter: defaultFilter,
-                       Group: defaultGroup
-                    );
-                }
+                App.ViewEditSingle(
+                   Name: ViewName,
+                   Create: !viewExists,
+                   Screen: MSProject.PjViewScreen.pjGantt,
+                   Table: TableName,
+                   Filter: defaultFilter,
+                   Group: defaultGroup
+                );
                 // Применяем результат
                 App.ViewApply(ViewName);
-                App.TableApply(TableName);
                 //App.SelectBeginning();
-
-                //App.ScreenUpdating = true;
-                //InvalidateRibbon();
+                InvalidateRibbon();
                 MessageBox.Show($"Представление '{ViewName}' создано и выбрано.", "SIBUR PERT", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -231,7 +197,18 @@ namespace SIBUR_PERT_Tools_Addin
 
         private void EditTableColumn(string tableName, string fieldName, string title, int width, bool create = false)
         {
-            App.TableEditEx(Name: tableName, TaskTable: true, Create: create, FieldName: fieldName, Title: title, Width: width, ShowInMenu: true);
+            App.TableEditEx(
+                Name: tableName, 
+                TaskTable: true, 
+                Create: true, // Не создаем новую, только редактируем
+                OverwriteExisting: false,// Не перезаписываем существующие, добавляем новые
+                FieldName: fieldName, 
+                Title: title, 
+                Width: width,
+                Align: 1, // pjLeft - выравниваем слева
+                ColumnPosition: -1,// Добавляем в конец таблицы
+                ShowInMenu: true
+            );
         }
 
         ///<summary>
