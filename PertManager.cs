@@ -6,7 +6,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Diagnostics;
 using MSProject = Microsoft.Office.Interop.MSProject;
+using System.Drawing;
+//using Microsoft.Office.Interop.MSProject;
+using Exception = System.Exception;
 
 namespace SIBUR_PERT_Tools_Addin
 {
@@ -58,7 +62,6 @@ namespace SIBUR_PERT_Tools_Addin
                 App.GroupClear();
                 string defaultGroup = ActiveProject.CurrentGroup;
 
-                //MessageBox.Show($"Filter: {defaultFilter}\nGroup: {defaultGroup}");
                 // Останавливаем отрисовку, чтобы не было "дерганий"
                 App.ScreenUpdating = false;
                 // 1. Создаем таблицу
@@ -67,7 +70,7 @@ namespace SIBUR_PERT_Tools_Addin
                 ActiveProject.TaskTables.Add(TableName, MSProject.PjField.pjTaskID);
                 MSProject.Table newTable = ActiveProject.TaskTables[TableName];
                 // Последовательное добавление колонок
-                newTable.TableFields.Add(MSProject.PjField.pjTaskName,Title: "Название", Width:25);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskName,Title: "Название", Width:25,AlignData:MSProject.PjAlignment.pjLeft);
                 newTable.TableFields.Add(MSProject.PjField.pjTaskDuration4, Title: "Optimistic", Width: 15);
                 newTable.TableFields.Add(MSProject.PjField.pjTaskDuration5, Title: "Most Likely", Width: 15);
                 newTable.TableFields.Add(MSProject.PjField.pjTaskDuration6, Title: "Pessimistic", Width: 15);
@@ -219,23 +222,28 @@ namespace SIBUR_PERT_Tools_Addin
             double hoursPerDay = GetHoursPerDay();
             int minutesPerDay = (int)(hoursPerDay *  60);
 
+            if (!ValidateWeights()) return;
+
             App.ScreenUpdating = false;
             App.Calculation = MSProject.PjCalculation.pjManual;
             foreach (MSProject.Task task in ActiveProject.Tasks)
             {
                 if (task == null || Convert.ToBoolean(task.Summary)) continue;
+                double opt = Convert.ToDouble(task.Duration4);
+                double mostLikely = Convert.ToDouble(task.Duration5);
+                double pess = Convert.ToDouble(task.Duration6);
+                
+                double w1 = Convert.ToDouble(task.Number4);
+                double w2 = Convert.ToDouble(task.Number5);
+                double w3 = Convert.ToDouble(task.Number6);
+                
 
-                double opt = Convert.ToDouble(task.GetField(MSProject.PjField.pjTaskDuration4));
-                double mostLikely = Convert.ToDouble(task.GetField(MSProject.PjField.pjTaskDuration5));
-                double pess = Convert.ToDouble(task.GetField(MSProject.PjField.pjTaskDuration6));
+                
+                if (w1 == 0) { w1 = 1; task.Number4 = 1; } 
+                if (w2 == 0) { w2 = 4; task.Number5 = 4; }
+                if (w3 == 0) { w3 = 1; task.Number6 = 1; }
 
-                double w1 = Convert.ToDouble(task.GetField(MSProject.PjField.pjTaskNumber4));
-                double w2 = Convert.ToDouble(task.GetField(MSProject.PjField.pjTaskNumber5));
-                double w3 = Convert.ToDouble(task.GetField(MSProject.PjField.pjTaskNumber6));
-
-                if (w1 == 0) w1 = 1;
-                if (w2 == 0) w2 = 4;
-                if (w3 == 0) w3 = 1;
+                Debug.WriteLine($"w1 = {w1}, w2 = {w2}, w3 = {w3}");
 
                 if (opt > 0 || mostLikely > 0 || pess > 0)
                 {
@@ -252,6 +260,74 @@ namespace SIBUR_PERT_Tools_Addin
             App.ScreenUpdating = true;
             MessageBox.Show("Расчет завершен.", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
+
+        ///<summary>
+        /// Эта функция только проверяет и красит. Возвращает false, если есть ошибки
+        /// </summary>
+        private bool ValidateWeights()
+        {
+            try
+            {
+                if(ActiveProject == null) return false;
+
+                App.ScreenUpdating = false;
+                int salmonColor = ColorTranslator.ToOle(ColorTranslator.FromHtml("#fa786e"));
+                string w1Col = App.FieldConstantToFieldName(MSProject.PjField.pjTaskNumber4);
+                string w2Col = App.FieldConstantToFieldName(MSProject.PjField.pjTaskNumber5);
+                string w3Col = App.FieldConstantToFieldName(MSProject.PjField.pjTaskNumber6);
+
+                bool hasErrors = false;
+
+                App.OutlineShowAllTasks();
+
+                foreach (MSProject.Task task in ActiveProject.Tasks) 
+                {
+                    if (task == null || Convert.ToBoolean(task.Summary)) continue;
+
+                    double w1 = task.Number4;
+                    double w2 = task.Number5;
+                    double w3 = task.Number6;
+
+                    App.SelectTaskField(Row: task.ID, Column: w1Col, RowRelative: false, Width: 2);
+                    App.Font32Ex(CellColor: 0xFFFFFF);
+
+                    if ((w1 + w2 + w3) != 6 || w1< 0 || w2 < 0 || w3 <0) 
+                    {
+
+                        hasErrors = true;
+                        App.SelectTaskField(Row: task.ID, Column: w1Col, RowRelative: false, Width:2);
+                        App.Font32Ex(CellColor: salmonColor);
+                    }
+                }
+
+                App.ScreenUpdating = true;
+
+                if (hasErrors) 
+                {
+                    MessageBox.Show(
+                            "Обнаружены ошибки в весах задач (W1, W2, W3).\n\n" +
+                            "По правилу PERT сумма весов должна быть равна 6 (стандарт: 1, 4, 1).\n"+
+                            "Проблемные ячейки подсвечены красным цветом. Пожалуйста, исправьте их и нажмите 'Расчет' снова.",
+                            "Ошибка валидации",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning
+                        );
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                App.ScreenUpdating = true;
+                MessageBox.Show("Ошибка при проверке весов! " + ex.Message);
+                return false;
+
+            }
+        }
+
+
+
         ///<summary>
         /// Применение расчитанной длительности к основной колонке Duration
         /// </summary>
@@ -268,7 +344,7 @@ namespace SIBUR_PERT_Tools_Addin
             {
                 if (task == null || Convert.ToBoolean(task.Summary)) continue;
 
-                double calcDuration = Convert.ToDouble(task.GetField(MSProject.PjField.pjTaskDuration7));
+                double calcDuration = Convert.ToDouble(task.Duration7);
 
                 if (calcDuration > 0)
                 {
