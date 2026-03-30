@@ -68,9 +68,18 @@ namespace SIBUR_PERT_Tools_Addin
                 bool tableExists = CheckPertTableExists();
                 // Добавлеем в текущий проект новую таблицу Pert
                 ActiveProject.TaskTables.Add(TableName, MSProject.PjField.pjTaskID);
+                App.TableEditEx(
+                        Name: TableName,
+                        TaskTable: true,
+                        NewFieldName: "ID",
+                        Title: "",
+                        Width: 5,
+                        Align: MSProject.PjAlignment.pjCenter,
+                        LockFirstColumn: true
+                    );
                 MSProject.Table newTable = ActiveProject.TaskTables[TableName];
                 // Последовательное добавление колонок
-                newTable.TableFields.Add(MSProject.PjField.pjTaskName,Title: "Название", Width:25,AlignData:MSProject.PjAlignment.pjLeft);
+                newTable.TableFields.Add(MSProject.PjField.pjTaskName, Title: "Название", Width:25,AlignData:MSProject.PjAlignment.pjLeft);
                 newTable.TableFields.Add(MSProject.PjField.pjTaskDuration4, Title: "Optimistic", Width: 15);
                 newTable.TableFields.Add(MSProject.PjField.pjTaskDuration5, Title: "Most Likely", Width: 15);
                 newTable.TableFields.Add(MSProject.PjField.pjTaskDuration6, Title: "Pessimistic", Width: 15);
@@ -288,14 +297,18 @@ namespace SIBUR_PERT_Tools_Addin
                     double w2 = task.Number5;
                     double w3 = task.Number6;
 
+                    //|| w1 < 0 || w2 < 0 || w3 < 0)
+
                     App.SelectTaskField(Row: task.ID, Column: w1Col, RowRelative: false, Width: 2);
                     App.Font32Ex(CellColor: 0xFFFFFF);
 
-                    if ((w1 + w2 + w3) != 6 || w1< 0 || w2 < 0 || w3 <0) 
+                    if (w1 == 0 && w2 == 0 && w3 == 0)
                     {
-
+                        continue;
+                    }else if ((w1 + w2 + w3) != 6)
+                    {
                         hasErrors = true;
-                        App.SelectTaskField(Row: task.ID, Column: w1Col, RowRelative: false, Width:2);
+                        App.SelectTaskField(Row: task.ID, Column: w1Col, RowRelative: false, Width: 2);
                         App.Font32Ex(CellColor: salmonColor);
                     }
                 }
@@ -333,27 +346,122 @@ namespace SIBUR_PERT_Tools_Addin
         /// </summary>
         public void ApplyPERTDurations()
         {
-            var result = MessageBox.Show("Вы уверены, что хотите перезаписать основные длительности задач?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            //var result = MessageBox.Show("Вы уверены, что хотите перезаписать основные длительности задач?", "Подтверждение", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
-            if (result != DialogResult.Yes) return;
+            //if (result != DialogResult.Yes) return;
+
+            if (ActiveProject == null) return;
+
+            // 1. Создаем кастомное диалоговое окно
+            Form form = new Form()
+            {
+                Text = "Применение расчета PERT",
+                Size = new Size(400,200),
+                StartPosition = FormStartPosition.CenterScreen,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            Label lblQuestion = new Label()
+            {
+                Text = "К каким задачам применить рассчитанную длительность?",
+                Location = new Point(15,15),
+                AutoSize = true
+            };
+
+            RadioButton rbAll = new RadioButton()
+            {
+                Text="Ко всем задачам проекта",
+                Location = new Point(20,45),
+                AutoSize= true,
+                Checked = true
+            };
+
+            RadioButton rbSelected = new RadioButton()
+            {
+                Text = "Только к выделенным задачам",
+                Location = new Point(20, 70),
+                AutoSize = true,
+            };
+
+            Button btnOk = new Button()
+            {
+                Text = "Применить",
+                DialogResult = DialogResult.OK,
+                Location = new Point(180, 105),
+                Width = 85
+            };
+            Button btnCancel = new Button()
+            {
+                Text = "Отмена",
+                DialogResult = DialogResult.Cancel,
+                Location = new Point(270, 105),
+                Width = 85
+            };
+
+            // Добавляем элементы на форму
+            form.Controls.Add(lblQuestion);
+            form.Controls.Add(rbAll);
+            form.Controls.Add(rbSelected);
+            form.Controls.Add(btnOk);
+            form.Controls.Add(btnCancel);
+            form.AcceptButton = btnOk;
+            form.CancelButton = btnCancel;
+
+            // 2. Показываем форму и ждем ответа пользователя
+            if(form.ShowDialog() != DialogResult.OK) { return; }
 
             App.ScreenUpdating = false;
-            App.Calculation = MSProject.PjCalculation.pjManual;
 
-            foreach (MSProject.Task task in ActiveProject.Tasks)
+            //App.Calculation = MSProject.PjCalculation.pjManual;
+
+            try
             {
-                if (task == null || Convert.ToBoolean(task.Summary)) continue;
+                MSProject.Tasks tasksToProcess;
 
-                double calcDuration = Convert.ToDouble(task.Duration7);
-
-                if (calcDuration > 0)
+                if (rbAll.Checked)
                 {
-                    task.Duration = calcDuration;
-                    task.Text30 = "Применено";
+                    tasksToProcess = ActiveProject.Tasks;
                 }
+                else
+                {
+                    // Проверяем, если ли вообще выделенные задачи
+                    if(App.ActiveSelection == null || App.ActiveSelection.Tasks == null || App.ActiveSelection.Tasks.Count == 0)
+                    {
+                        MessageBox.Show("Нет выделенных задачю Выделите строки в таблице и повторите попытку.", "Внимание", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                    tasksToProcess = App.ActiveSelection.Tasks;
+                }
+
+                int appliedCount = 0;
+
+                foreach (MSProject.Task task in tasksToProcess)
+                {
+                    if (task == null || Convert.ToBoolean(task.Summary)) continue;
+
+                    double calcDuration = Convert.ToDouble(task.Duration7);
+
+                    if (calcDuration > 0)
+                    {
+                        task.Duration = calcDuration;
+                        // Убирает знак вопроса (снимает флаг "Оценочная")
+                        task.Estimated = false;
+                        task.Text30 = "Применено";
+                        appliedCount++;
+                    }
+                }
+                //App.Calculation = MSProject.PjCalculation.pjAutomatic;
+                App.ScreenUpdating = true;
+                MessageBox.Show($"Расчет успешно применен к {appliedCount} задачам.", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }catch(System.Exception ex)
+            {
+                App.ScreenUpdating = true;
+                MessageBox.Show("Произошла ошбика при применении расчета: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-            App.Calculation = MSProject.PjCalculation.pjAutomatic;
-            App.ScreenUpdating = true;
+
+
         }
 
         public double GetHoursPerDay()
