@@ -1,7 +1,4 @@
-﻿# SiIBUR_PERT_Tools_Addin
-
-
-# SIBUR PERT Tools Addin
+﻿# SIBUR PERT Tools Addin
 
 Профессиональная надстройка (Add-in) для Microsoft Project, предназначенная для автоматизации оценки длительности задач по методу **PERT** (Program Evaluation and Review Technique). Разработано специально для повышения точности планирования графиков в среде SIBUR.
 
@@ -29,18 +26,12 @@
 * **Технология**: VSTO (Visual Studio Tools for Office)
 * **Библиотеки**: Microsoft.Office.Interop.MSProject
 
-## 🚀 Установка (Партизанский метод)
+## 🚀 Установка
 
-Если в вашей компании ограничена установка `.exe` файлов, используйте метод регистрации через реестр Windows.
+### Вариант 1: Стандартный (Рекомендуемый)
+Этот способ использует встроенный установщик Microsoft Office.
 
-1.  **Подготовка файлов**: Скопируйте содержимое папки `Release` в локальную директорию на вашем компьютере (рекомендуется `C:\SIBUR_Tools\PERT\`).
-2.  **Регистрация**: Создайте файл `install.reg` со следующим содержимым (укажите ваш путь):
-
-```reg
-Windows Registry Editor Version 5.00
-
-[HKEY_CURRENT_USER\Software\Microsoft\Office\MS Project\Addins\SIBUR_PERT_Tools_Addin]
-"Description"="Инструмент расчета оценок по методу PERT для СИБУР"
-"FriendlyName"="SIBUR PERT Tools"
-"LoadBehavior"=dword:00000003
-"Manifest"="C:\\SIBUR_Tools\\PERT\\SIBUR_PERT_Tools_Addin.vsto|vstolocal"
+1. Скачайте архив с надстройкой и распакуйте его в постоянную папку (например, `C:\Program Files\SIBUR_Tools\`).
+2. Запустите файл **SIBUR_PERT_Tools_Addin.vsto**.
+3. В появившемся окне подтвердите установку, нажав кнопку **"Install" (Установить)**.
+4. Перезапустите Microsoft Project.
